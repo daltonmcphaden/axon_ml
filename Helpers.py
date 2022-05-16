@@ -6,6 +6,48 @@ import itertools
 import operator
 import matplotlib.pyplot as plt
 
+def windowDf(df, shift):
+    width = 20
+    new_df = pd.DataFrame([], columns = ['Linear X', 'Linear Y', 'Linear Z', 'Linear Resultant', 'Rotational X', 'Rotational Y', 'Rotational Z', 'Rotational Resultant'])
+    # take the merged linear and rotational data and find the range around the max for each column
+    for col in df.columns:        
+        if abs(df[col].max()) > abs(df[col].min()):
+            extremeRow = df[col].idxmax()
+        else:
+            extremeRow = df[col].idxmin()        
+        
+        extremeRow = extremeRow + shift
+        
+        if extremeRow - width < 0:                    
+            df_temp = pd.DataFrame([-123]*(width-extremeRow))
+            df_temp2 = df.loc[0:width+extremeRow, [col]]
+            df_temp.columns = df_temp2.columns
+
+            df_temp = pd.concat([df_temp, df_temp2], ignore_index=True) 
+        
+            new_df_avg = df[col].mean()
+            df_temp.loc[0:width-extremeRow-1, col] = new_df_avg  
+
+            new_df[col] = df_temp[col].values                      
+
+        elif extremeRow + width >= 120:            
+            df_temp = pd.DataFrame([-123]*(width+extremeRow-120+1))                     
+            df_temp2 = df.loc[extremeRow-width:120-1, [col]]
+            df_temp.columns = df_temp2.columns
+            
+            df_temp = pd.concat([df_temp2, df_temp], ignore_index=True)            
+            
+            new_df_avg = df[col].mean()            
+            df_temp.loc[120-extremeRow+width:width*2, col] = new_df_avg              
+        
+            new_df[col] = df_temp[col].values                                    
+
+        else:                       
+            new_df[col] = df[col].iloc[extremeRow-width:extremeRow+width+1].values
+     
+    return new_df
+
+
 def resolve_NAs(df, colStr):
     # change all NA values in specified column to be value of the previous row
     for index, row in df.iterrows():
@@ -36,9 +78,7 @@ def dbSensorData_to_dfs(sensorData, isLinear):
     
     return sensorDataDfs
     
-def femData_to_df(femData):
-    # remove modelID from the tuples
-    femData = [(case, typeI, val) for case, modelID, typeI, val in femData]
+def femData_to_df(femData):    
     
     ###### combine individual output types into one tuple for entire caseID ######
     # empty dict
